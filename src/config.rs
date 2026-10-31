@@ -2026,6 +2026,8 @@ pub struct RecentLanEndpoint {
     #[serde(default, deserialize_with = "deserialize_string")]
     pub platform: String,
     #[serde(default, deserialize_with = "deserialize_string")]
+    pub device_type: String,
+    #[serde(default, deserialize_with = "deserialize_string")]
     pub fingerprint: String,
     #[serde(default, deserialize_with = "deserialize_i64")]
     pub last_connected_at: i64,
@@ -2071,7 +2073,12 @@ pub struct LocalConfig {
 }
 
 impl LocalConfig {
-    fn upsert_recent_lan_endpoint(&mut self, recent: RecentLanEndpoint) {
+    fn upsert_recent_lan_endpoint(&mut self, mut recent: RecentLanEndpoint) {
+        if recent.device_type.is_empty() {
+            if let Some(previous) = self.recent_lan_endpoints.get(&recent.fingerprint) {
+                recent.device_type = previous.device_type.clone();
+            }
+        }
         self.remote_id = recent.endpoint.clone();
         self.recent_lan_endpoints
             .insert(recent.fingerprint.clone(), recent);
@@ -2179,6 +2186,7 @@ impl LocalConfig {
         hostname: &str,
         platform: &str,
         fingerprint: &str,
+        device_type: &str,
     ) -> Result<()> {
         let endpoint = crate::lan::Endpoint::parse(endpoint)?
             .authority()
@@ -2194,6 +2202,7 @@ impl LocalConfig {
             username,
             hostname: hostname.trim().to_owned(),
             platform: platform.trim().to_owned(),
+            device_type: device_type.to_owned(),
             fingerprint,
             last_connected_at: crate::get_time(),
         });
@@ -2435,6 +2444,8 @@ pub struct DiscoveryPeer {
     pub hostname: String,
     #[serde(default, deserialize_with = "deserialize_string")]
     pub platform: String,
+    #[serde(default, deserialize_with = "deserialize_string")]
+    pub device_type: String,
     #[serde(default, deserialize_with = "deserialize_bool")]
     pub online: bool,
     #[serde(default, deserialize_with = "deserialize_i64")]
@@ -3557,6 +3568,7 @@ mod tests {
     fn discovery_presence_survives_json_and_toml_storage() {
         let mut peer = DiscoveryPeer {
             id: "192.168.1.2:21118".to_owned(),
+            device_type: "tablet".to_owned(),
             ip_mac: HashMap::from([("192.168.1.2".to_owned(), String::new())]),
             ..Default::default()
         };
@@ -3567,6 +3579,7 @@ mod tests {
         let stored = toml::to_string(&LanPeers { peers: vec![peer] }).unwrap();
         let loaded: LanPeers = toml::from_str(&stored).unwrap();
         assert_eq!(loaded.peers[0].last_seen, 100_000);
+        assert_eq!(loaded.peers[0].device_type, "tablet");
         assert_eq!(loaded.peers[0].online_state(100_001), Some(true));
     }
 
@@ -3676,6 +3689,7 @@ mod tests {
         config.upsert_recent_lan_endpoint(RecentLanEndpoint {
             endpoint: "192.168.1.20:21118".to_owned(),
             username: "operator".to_owned(),
+            device_type: "server".to_owned(),
             fingerprint: fingerprint.clone(),
             last_connected_at: 1,
             ..Default::default()
@@ -3689,6 +3703,7 @@ mod tests {
         });
 
         assert_eq!(config.recent_lan_endpoints.len(), 1);
+        assert_eq!(config.recent_lan_endpoints[&fingerprint].device_type, "server");
         assert_eq!(config.remote_id, "192.168.1.99:21118");
         assert_eq!(
             config.recent_lan_endpoints[&fingerprint].endpoint,
