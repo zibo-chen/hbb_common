@@ -1,11 +1,9 @@
 pub mod compress;
-pub mod platform;
 pub mod protos;
 pub use bytes;
 use config::Config;
 pub use futures;
 pub use protobuf;
-pub use protos::message as message_proto;
 pub use protos::rendezvous as rendezvous_proto;
 use std::{
     fs::File,
@@ -26,7 +24,6 @@ pub use futures_util;
 pub mod config;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod app_paths;
-pub mod fs;
 pub mod mem;
 pub use lazy_static;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -38,8 +35,9 @@ pub mod password_security;
 pub use chrono;
 pub use directories_next;
 pub use libc;
-pub mod keyboard;
 pub mod lan;
+#[cfg(target_os = "linux")]
+pub mod sh;
 pub use base64;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub use dlopen;
